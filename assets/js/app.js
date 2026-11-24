@@ -72,15 +72,43 @@ function initEditor() {
       },
     });
     editor.on("change", () => store.set("code:" + challengeName, editor.getValue()));
+    lockClipboard(editor.getWrapperElement());
   } else {
     host.innerHTML = '<textarea id="fallback" spellcheck="false"></textarea>';
     const ta = $("fallback"); ta.value = start;
     ta.addEventListener("input", () => store.set("code:" + challengeName, ta.value));
+    lockClipboard(ta);
   }
 }
+/* ---------- the code window blocks copy, cut and paste ---------- */
+function lockClipboard(el) {
+  const stop = (e) => { e.preventDefault(); e.stopPropagation(); };
+  ["copy", "cut", "paste", "drop", "dragstart", "contextmenu"].forEach((t) => el.addEventListener(t, stop, true));
+  el.addEventListener("keydown", (e) => {
+    const k = (e.key || "").toLowerCase();
+    const mod = e.ctrlKey || e.metaKey;
+    // Ctrl/Cmd + C, X, V, and the old Ctrl+Insert, Shift+Insert, Shift+Delete
+    if ((mod && (k === "c" || k === "x" || k === "v" || k === "insert")) ||
+        (e.shiftKey && (k === "insert" || k === "delete"))) stop(e);
+  }, true);
+}
+
 const getCode = () => editor ? editor.getValue() : $("fallback").value;
 const setCode = (v) => { if (editor) editor.setValue(v); else $("fallback").value = v; };
-$("resetBtn").onclick = () => { if (confirm("Replace your code with the starter code?")) setCode(P.starterCode); };
+// Reset asks for a second click on the button itself. A browser confirm() box would
+// make the browser leave full-screen mode.
+let resetTimer = null;
+$("resetBtn").onclick = () => {
+  const btn = $("resetBtn");
+  if (resetTimer) {
+    clearTimeout(resetTimer); resetTimer = null;
+    btn.textContent = "Reset";
+    setCode(P.starterCode);
+    return;
+  }
+  btn.textContent = "Click again to reset";
+  resetTimer = setTimeout(() => { resetTimer = null; btn.textContent = "Reset"; }, 3000);
+};
 
 /* ---------- python worker ---------- */
 let worker = null, readyPromise = null, onMsg = null;
@@ -92,7 +120,7 @@ function startWorker() {
   const w = worker;
   readyPromise = new Promise((resolve, reject) => {
     w.onmessage = (ev) => {
-      if (ev.data.type === "ready") { $("pyStatus").textContent = "Python ready"; resolve(); }
+      if (ev.data.type === "ready") { $("pyStatus").textContent = "Python 3 ready"; resolve(); }
       else if (ev.data.type === "fatal") { $("pyStatus").textContent = "Python failed to load"; reject(new Error(ev.data.message)); }
       else if (onMsg) onMsg(ev.data);
     };
@@ -256,6 +284,38 @@ drag($("gh"), (e) => {
 ["copy", "cut", "contextmenu", "dragstart", "selectstart"].forEach((t) =>
   $("left").addEventListener(t, (e) => e.preventDefault()));
 
+/* ---------- leaving the window: counted and shown next to the Python status ---------- */
+// The page cannot see another screen, but it knows when this window stops being the active one
+// (a click on another window or screen, another tab, minimizing). Each time is counted and kept.
+function startFocusWatch(start) {
+  const key = "away:" + challengeName;
+  let log = [];
+  try { log = JSON.parse(store.get(key) || "[]").filter((e) => e.at >= start); } catch (e) {}
+  const note = $("awayNote");
+  let leftAt = 0;
+  const fmt = (s) => s < 60 ? s + " s" : Math.floor(s / 60) + " min " + String(s % 60).padStart(2, "0") + " s";
+  const show = () => {
+    if (!log.length) return;
+    const total = log.reduce((a, e) => a + e.seconds, 0);
+    note.textContent = "Left window: " + log.length + (log.length === 1 ? " time, " : " times, ") + fmt(total) + " away in total";
+    note.title = log.slice(-10).map((e) => new Date(e.at).toLocaleTimeString() + " (" + e.seconds + " s)").join("\n");
+    note.hidden = false;
+  };
+  const leave = () => { if (!leftAt) leftAt = Date.now(); };
+  const back = () => {
+    if (!leftAt) return;
+    const seconds = Math.max(1, Math.round((Date.now() - leftAt) / 1000));
+    log.push({ at: leftAt, seconds });
+    leftAt = 0;
+    store.set(key, JSON.stringify(log));
+    show();
+  };
+  window.addEventListener("blur", leave);
+  window.addEventListener("focus", back);
+  document.addEventListener("visibilitychange", () => (document.hidden ? leave() : back()));
+  show();
+}
+
 /* ---------- timer: counts up from when the page opens; survives a reload ---------- */
 function startTimer() {
   const key = "start:" + challengeName;
@@ -273,6 +333,7 @@ function startTimer() {
   };
   tick();
   setInterval(tick, 1000);
+  startFocusWatch(start);
 }
 
 /* ---------- rules gate: confirm, full screen, [wheel], count 3-2-1, then show the page ---------- */

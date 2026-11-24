@@ -3,11 +3,16 @@ function spinWheel(canvas, labels, target, ms) {
   const ctx = canvas.getContext("2d");
   const size = canvas.width, c = size / 2, r = c - 6;
   const n = labels.length, seg = (Math.PI * 2) / n;
-  const colors = ["#ffa116", "#2cbb5d", "#3b82f6", "#a855f7", "#ef4743", "#14b8a6"];
+  // colors come from the page variables, so there is one source for them
+  const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const colors = [css("--accent"), css("--green"), css("--blue"), css("--red")];
+  const bg = css("--bg"), fg = css("--text");
+  // with an odd count the last segment would touch the first in the same color
+  const segColor = (i) => (i === n - 1 && i % colors.length === 0) ? colors[1] : colors[i % colors.length];
   // stop inside the target segment, a little off-centre so it looks natural
   const jitter = (Math.random() - 0.5) * seg * 0.6;
   const final = -Math.PI / 2 - (target + 0.5) * seg + jitter + Math.PI * 2 * 6;
-  const fontPx = Math.max(11, Math.min(18, Math.floor(r * seg * 0.45)));
+  const fontPx = 14;   // one of the three page font sizes
 
   function draw(rot) {
     ctx.clearRect(0, 0, size, size);
@@ -19,14 +24,14 @@ function spinWheel(canvas, labels, target, ms) {
       ctx.moveTo(0, 0);
       ctx.arc(0, 0, r, i * seg, (i + 1) * seg);
       ctx.closePath();
-      ctx.fillStyle = colors[i % colors.length];
+      ctx.fillStyle = segColor(i);
       ctx.fill();
-      ctx.strokeStyle = "#1a1a1a";
+      ctx.strokeStyle = bg;
       ctx.lineWidth = 2;
       ctx.stroke();
       ctx.save();
       ctx.rotate((i + 0.5) * seg);
-      ctx.fillStyle = "#fff";
+      ctx.fillStyle = fg;
       ctx.font = `600 ${fontPx}px -apple-system, "Segoe UI", Roboto, sans-serif`;
       ctx.textAlign = "right";
       ctx.textBaseline = "middle";
@@ -39,7 +44,7 @@ function spinWheel(canvas, labels, target, ms) {
     ctx.restore();
     ctx.beginPath();
     ctx.arc(c, c, 22, 0, Math.PI * 2);
-    ctx.fillStyle = "#1a1a1a";
+    ctx.fillStyle = bg;
     ctx.fill();
   }
 
