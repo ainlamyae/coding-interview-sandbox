@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coding Interview Sandbox – Python Coding Assessment</title>
+<meta name="description" content="A browser-based Python coding interview tool: read the problem, write code in the editor and run it against test cases. No installation, no server.">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta name="author" content="Coding Interview Sandbox">
+<meta name="theme-color" content="#1a1a1a">
+<meta name="color-scheme" content="dark">
+<link rel="canonical" href="https://ainlamyae.github.io/coding-interview-sandbox/">
+
+<!-- Icons and manifest -->
+<link rel="icon" href="favicon.ico" sizes="48x48">
+<link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+
+<!-- Open Graph and Twitter -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Coding Interview Sandbox">
+<meta property="og:title" content="Coding Interview Sandbox – Python Coding Assessment">
+<meta property="og:description" content="A browser-based Python coding interview tool: read the problem, write code in the editor and run it against test cases. No installation, no server.">
+<meta property="og:url" content="https://ainlamyae.github.io/coding-interview-sandbox/">
+<meta property="og:image" content="https://ainlamyae.github.io/coding-interview-sandbox/assets/img/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Coding Interview Sandbox – Python Coding Assessment">
+<meta name="twitter:description" content="A browser-based Python coding interview tool: read the problem, write code in the editor and run it against test cases. No installation, no server.">
+<meta name="twitter:image" content="https://ainlamyae.github.io/coding-interview-sandbox/assets/img/og-image.png">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "Coding Interview Sandbox",
+  "description": "A browser-based Python coding interview tool: read the problem, write code in the editor and run it against test cases. No installation, no server.",
+  "url": "https://ainlamyae.github.io/coding-interview-sandbox/",
+  "applicationCategory": "EducationalApplication",
+  "operatingSystem": "Any",
+  "browserRequirements": "Requires JavaScript and WebAssembly",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/material-darker.min.css">
+<link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+<div id="gate">
+  <div id="rules" class="gatebox">
+    <h2>Assessment Rules and Agreement</h2>
+    <p>This technical assessment evaluates your own problem-solving and programming skills. By proceeding, you acknowledge and agree to the following:</p>
+    <ul>
+      <li>You will not use artificial intelligence tools or assistants in any form.</li>
+      <li>You will not use autocomplete, code-completion or code-generation tools.</li>
+      <li>You will not copy solutions from the internet, notes or any other source.</li>
+      <li>You will not receive assistance from any other person, in person or remotely.</li>
+      <li>All code you submit will be entirely your own work, and you will act with integrity throughout the assessment.</li>
+    </ul>
+    <p class="hint">The assessment will open in full-screen mode once you confirm.</p>
+    <button class="btn primary big" id="confirmBtn">I Agree and Begin</button>
+  </div>
+  <div id="wheelBox" hidden>
+    <canvas id="wheel" width="520" height="520" aria-label="Challenge wheel"></canvas>
+    <div id="wheelPointer"></div>
+    <div id="wheelResult" aria-live="polite"></div>
+  </div>
+  <div id="countdown" hidden></div>
+</div>
+
+<main id="main">
+  <section class="panel" id="left">
+    <div class="tabs"><button class="tab active">Description</button></div>
+    <div class="scroll" id="desc"></div>
+  </section>
+  <div class="gutter v" id="gv"></div>
+  <div id="right" class="panel">
+    <section class="panel" id="editorPane">
+      <div class="tabs">
+        <button class="tab active">Code</button>
+        <span class="status" id="pyStatus">Loading Python…</span>
+        <span class="spacer"></span>
+        <span class="timer" id="timer" title="Time spent on this challenge" aria-label="Time spent">00:00</span>
+        <span class="hint" style="font-size:12px">Python 3</span>
+        <button class="btn ghost" id="resetBtn" title="Restore the starter code">Reset</button>
+        <button class="btn" id="runBtn">Run</button>
+        <button class="btn primary" id="submitBtn">Submit</button>
+      </div>
+      <div id="editorHost"></div>
+    </section>
+    <div class="gutter h" id="gh"></div>
+    <section class="panel" id="resultPane">
+      <div class="tabs">
+        <button class="tab active" data-tab="cases">Testcase</button>
+        <button class="tab" data-tab="result">Test Result</button>
+      </div>
+      <div class="scroll" id="bottom"></div>
+    </section>
+  </div>
+</main>
+
+<footer class="site-footer"><span>© 2026 <a href="https://ainlamyae.github.io/" target="_blank" rel="noopener">ALI</a></span></footer>
+
+<noscript>
+  <div class="gatebox" style="margin:40px auto">
+    <h2>JavaScript is required</h2>
+    <p>Coding Interview Sandbox runs Python in your browser with WebAssembly. Please enable JavaScript and reload the page.</p>
+  </div>
+</noscript>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
+<script src="assets/js/wheel.js"></script>
+<script src="assets/js/app.js"></script>
+</body>
+</html>
