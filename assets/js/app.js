@@ -72,6 +72,8 @@ function initEditor() {
       },
     });
     editor.on("change", () => store.set("code:" + challengeName, editor.getValue()));
+    editor.on("changes", updateIndentGuides);
+    updateIndentGuides(editor);
     lockClipboard(editor.getWrapperElement());
   } else {
     host.innerHTML = '<textarea id="fallback" spellcheck="false"></textarea>';
@@ -80,6 +82,45 @@ function initEditor() {
     lockClipboard(ta);
   }
 }
+/* ---------- indent guides: a thin line at each indent level, like LeetCode ---------- */
+// Each line gets the class "ig-N" (N = indent levels of 4 columns); the CSS draws N lines.
+// A blank line takes the smaller indent of the nearest non-blank lines above and below,
+// so the guides run unbroken through empty lines inside a block.
+const IG_MAX = 12;
+function updateIndentGuides(cm) {
+  const n = cm.lineCount(), tab = cm.getOption("tabSize");
+  const indent = new Array(n);           // columns, or -1 for a blank line
+  for (let i = 0; i < n; i++) {
+    const text = cm.getLine(i);
+    if (!text.trim()) { indent[i] = -1; continue; }
+    let col = 0;
+    for (const ch of text) {
+      if (ch === " ") col++;
+      else if (ch === "\t") col += tab - (col % tab);
+      else break;
+    }
+    indent[i] = col;
+  }
+  const levels = indent.map((c) => c > 0 ? Math.ceil(c / 4) : 0);
+  for (let i = 0; i < n; i++) {
+    if (indent[i] !== -1) continue;
+    let up = i - 1, down = i + 1;
+    while (up >= 0 && indent[up] === -1) up--;
+    while (down < n && indent[down] === -1) down++;
+    levels[i] = (up >= 0 && down < n) ? Math.min(levels[up], levels[down]) : 0;
+  }
+  cm.operation(() => {
+    for (let i = 0; i < n; i++) {
+      const want = levels[i] ? "ig-" + Math.min(levels[i], IG_MAX) : "";
+      const info = cm.lineInfo(i);
+      const have = ((info.textClass || "").match(/\big-\d+\b/) || [""])[0];
+      if (have === want) continue;
+      if (have) cm.removeLineClass(i, "text", have);
+      if (want) cm.addLineClass(i, "text", want);
+    }
+  });
+}
+
 /* ---------- the code window blocks copy, cut and paste ---------- */
 function lockClipboard(el) {
   const stop = (e) => { e.preventDefault(); e.stopPropagation(); };
@@ -167,7 +208,9 @@ const sameValue = (a, b) => {
 };
 
 async function run(mode) {
-  if (!P) return;
+  if (!P || busy) return;
+  // Run/Submit is a user gesture: use it to stay in (or get back to) full screen
+  if (assessing && wasFullscreen) enterFullscreen();
   const cases = P.testcases.filter((t) => mode === "submit" || !t.hidden);
   setBusy(true);
   showTab("result");
@@ -197,7 +240,10 @@ async function run(mode) {
   setBusy(false);
   renderBottom();
 }
-function setBusy(b) { $("runBtn").disabled = b; $("submitBtn").disabled = b; }
+// Busy state is a class, not the disabled attribute: disabling the button that was just
+// clicked takes focus away from it, which can make the browser leave full screen.
+let busy = false;
+function setBusy(b) { busy = b; $("runBtn").classList.toggle("busy", b); $("submitBtn").classList.toggle("busy", b); }
 $("runBtn").onclick = () => run("run");
 $("submitBtn").onclick = () => run("submit");
 
@@ -338,16 +384,32 @@ function startTimer() {
 
 /* ---------- rules gate: confirm, full screen, [wheel], count 3-2-1, then show the page ---------- */
 // Safari older than 16.4 only has the webkit-prefixed API, and iPhone Safari has none
+const isFullscreen = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+// Returns a promise that resolves true if the page is (or becomes) full screen.
 function enterFullscreen() {
   const el = document.documentElement;
-  if (document.fullscreenElement || document.webkitFullscreenElement) return;
+  if (isFullscreen()) return Promise.resolve(true);
   const fn = el.requestFullscreen || el.webkitRequestFullscreen;
-  if (!fn) return;
+  if (!fn) return Promise.resolve(false);
   try {
     const p = fn.call(el);
-    if (p && p.catch) p.catch(() => {});
-  } catch (e) {}
+    if (p && p.then) return p.then(() => true, () => false);
+  } catch (e) { return Promise.resolve(false); }
+  return Promise.resolve(true);   // old webkit API returns nothing
 }
+
+/* ---------- keep the assessment in full screen ---------- */
+// Safari on macOS can leave full screen while the page is in use (e.g. on Run or Submit).
+// When that happens, ask again at once, silently, while the click still counts as a user gesture.
+let assessing = false;       // set once the rules are confirmed
+let wasFullscreen = false;   // full screen was entered at least once (iPhone Safari never does)
+function onFullscreenChange() {
+  if (isFullscreen()) { wasFullscreen = true; return; }
+  if (!assessing || !wasFullscreen) return;
+  enterFullscreen();
+}
+document.addEventListener("fullscreenchange", onFullscreenChange);
+document.addEventListener("webkitfullscreenchange", onFullscreenChange);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function pickWithWheel() {
@@ -366,6 +428,7 @@ async function pickWithWheel() {
 
 $("confirmBtn").onclick = async () => {
   $("confirmBtn").disabled = true;
+  assessing = true;
   // the click is the user gesture browsers require for full screen
   enterFullscreen();
   $("rules").hidden = true;

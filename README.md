@@ -44,10 +44,12 @@ Everything is static files. Python runs in the candidate's browser through [Pyod
 ## Features
 
 - **Familiar layout:** problem, editor and results in three resizable panes (40% description and 60% code by default).
+- **Indent guides:** the editor draws a thin vertical line at each indent level (every four spaces or one Tab), as on LeetCode. The lines continue through blank lines inside a block, so Python's indentation is easy to see.
 - **Real Python 3:** the candidate's code runs in a Web Worker, so an endless loop is stopped and reported as Time Limit Exceeded.
 - **Run and Submit:** Run tests the sample cases. Submit also runs the hidden cases.
 - **Clear verdicts:** Accepted, Wrong Answer, Runtime Error, Time Limit Exceeded and Compile Error, with input, output, expected value and stdout.
 - **Assessment gate:** a rules page the candidate must accept, then full-screen mode and a 3-2-1 countdown.
+- **Stays in full screen:** clicking Run or Submit does not take the page out of full screen. If the browser (for example Safari on macOS) leaves full screen anyway, the page asks for it again straight away, with no message.
 - **Challenge wheel:** opening the site without a challenge name spins a wheel that picks one at random.
 - **Fixed challenge links:** `?challenge=<name>` opens one specific challenge, with no wheel.
 - **Challenge bank:** each challenge is one JSON file, with no code change needed to add one.
@@ -211,7 +213,7 @@ The site is plain static files, so any static host works. For GitHub Pages:
 
 ## Browser support
 
-A current version of Chrome, Edge, Firefox or Safari with JavaScript and WebAssembly enabled. Full-screen mode needs a browser that supports the Fullscreen API.
+A current version of Chrome, Edge, Firefox or Safari with JavaScript and WebAssembly enabled. Full-screen mode needs a browser that supports the Fullscreen API. iPhone Safari has no Fullscreen API, so the page runs in a normal window there.
 
 ## Contributing
 

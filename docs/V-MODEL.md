@@ -129,7 +129,7 @@ Priority: M = must, S = should.
 | ID | Requirement | Need | Pri |
 | --- | --- | --- | --- |
 | FR-01 | The System shall display the challenge title, description, examples, constraints and optional follow-up note. | SN-01 | M |
-| FR-02 | The System shall provide a Python code editor with line numbers, syntax highlighting, indentation with the Tab key, and automatic saving of the code in the browser per challenge. | SN-01, SN-02 | M |
+| FR-02 | The System shall provide a Python code editor with line numbers, syntax highlighting, indentation with the Tab key, indent guides (a thin vertical line at each four-column indent level, continued through blank lines inside a block), and automatic saving of the code in the browser per challenge. | SN-01, SN-02 | M |
 | FR-03 | The System shall execute the candidate's code against the sample cases when the candidate selects **Run** (also by Ctrl+Enter or Cmd+Enter). | SN-02 | M |
 | FR-04 | The System shall execute the candidate's code against all cases, sample and hidden, when the candidate selects **Submit**. | SN-03 | M |
 | FR-05 | The System shall report one verdict per run: Accepted, Wrong Answer, Runtime Error, Time Limit Exceeded or Compile Error, and shall show for the failing case the input, the actual output or error, the expected value and the captured standard output. | SN-02, SN-03 | M |
@@ -137,7 +137,7 @@ Priority: M = must, S = should.
 | FR-07 | The System shall open a specific challenge when the address contains `?challenge=<name>`, and shall not show the wheel in that case. | SN-06 | M |
 | FR-08 | When no challenge is named, the System shall pick a challenge at random, show a spinning wheel that stops on it, and update the address so that a reload keeps the same challenge. | SN-06 | M |
 | FR-09 | The System shall show a rules-and-agreement screen, require an explicit confirmation, and then show a 3-2-1 countdown before the assessment screen. | SN-04 | M |
-| FR-10 | The System shall request full-screen mode when the candidate confirms the rules. | SN-04 | S |
+| FR-10 | The System shall request full-screen mode when the candidate confirms the rules, and shall keep it during the assessment: Run and Submit shall not take the page out of full screen, and if the browser leaves full screen the System shall request it again without showing a message. | SN-04 | S |
 | FR-11 | The System shall show a count-up timer that starts when the countdown ends, survives a page reload, and restarts when the stored start time is older than 12 hours. | SN-05 | M |
 | FR-12 | The System shall present resizable panes with a default width of 40% for the description and 60% for the code area. | SN-01 | M |
 | FR-13 | The System shall prevent the candidate from selecting, copying, cutting, dragging or opening the context menu on the problem statement. | SN-04 | S |
@@ -418,12 +418,14 @@ All storage access is wrapped in `try/catch`, so the page works when storage is 
 | `listChallenges()`, `prettyName(slug)` | Read `index.json`; convert `top-k-frequent-elements` to "Top K Frequent Elements" | FR-08, FR-14 |
 | `renderDescription()` | Build the statement HTML from escaped fields | FR-01, NFR-05 |
 | `initEditor()` | Create the CodeMirror editor, restore saved code, bind shortcuts; fall back to a text area when CodeMirror is missing | FR-02, FR-03 |
+| `updateIndentGuides(cm)` | On every change, compute each line's indent level (blank lines take the smaller level of the nearest non-blank lines above and below) and set the line class `ig-N`; the CSS draws N one-pixel lines four characters apart. The CSS selectors start with `.CodeMirror pre` so they override CodeMirror's own `background: transparent` on lines | FR-02 |
 | `startWorker()`, `execute(cases)` | Create the worker, send cases, arm and re-arm the time-limit timer, restart on timeout | FR-06, NFR-04 |
-| `run(mode)` | Select cases, call `execute`, compute states and verdict, render | FR-03, FR-04, FR-05 |
+| `run(mode)` | Re-request full screen (the click is a user gesture), select cases, call `execute`, compute states and verdict, render. While a run is in progress, Run and Submit get the `busy` class and ignore clicks; they are not disabled, because disabling the button just clicked moves focus away from it | FR-03, FR-04, FR-05, FR-10 |
 | `sameValue(a, b)` | Compare actual and expected values (ordered, or unordered when configured) | FR-05, FR-15 |
 | `renderBottom()`, `inputBlocks()`, `fmtArg()` | Render the Testcase and Test Result tabs; truncate values over 600 characters | FR-05, NFR-09 |
 | `pickWithWheel()` | Draw an index with `crypto.getRandomValues`, run the wheel, update the URL, load the challenge | FR-08 |
-| `enterFullscreen()` | Use the standard or `webkit` API, ignore refusal | FR-10 |
+| `enterFullscreen()` | Use the standard or `webkit` API, ignore refusal; returns a promise that resolves to whether the page is in full screen | FR-10 |
+| `onFullscreenChange()` | On `fullscreenchange` / `webkitfullscreenchange`: if the assessment has started and full screen was entered once, request it again at once, silently | FR-10 |
 | `startTimer()` | Store or read the start time, format and display elapsed time | FR-11 |
 | `drag(handle, onMove)` | Pane resizing with pointer capture | FR-12 |
 | Gate handler | Confirm, full screen, optional wheel, countdown, remove gate | FR-09 |
@@ -616,6 +618,8 @@ Level: the complete System in a real browser, against the system requirements an
 | ST-12 | New-challenge check | For each challenge: submit a correct solution, then a wrong one | Correct is Accepted; wrong is rejected | FR-14 | Planned |
 | ST-13 | Unordered answer | Top K Frequent Elements: return the answer in reverse order | Accepted | FR-15 | Planned |
 | ST-14 | Statement protection | Select with mouse, Ctrl+A, Ctrl+C, right-click, drag on the statement | No selection, no copy, no menu | FR-13 | Planned |
+| ST-31 | Indent guides | Type a nested block (`def`, `for`, `if`) with a blank line inside it; indent and dedent lines | A thin line at each indent level, continued across the blank line; lines update as indentation changes | FR-02 | Planned |
+| ST-32 | Full screen kept | Safari (macOS) and Chrome: accept the rules, then click Run and Submit several times and press Cmd/Ctrl+Enter | The page stays in full screen; no message is shown | FR-10 | Planned |
 | ST-15 | Shortcut | Press Ctrl+Enter (Windows, Linux) and Cmd+Enter (macOS) in the editor | Run starts | FR-03 | Planned |
 | ST-16 | Copyright notice | View in a normal window, then full screen | Shown with a link and no underline; hidden in full screen | FR-17 | Planned |
 | ST-17 | Verdict order | Cause each verdict type | Verdict text is shown first in the result panel | NFR-09 | Planned |
@@ -710,7 +714,7 @@ The following checks have been performed by static analysis of the files and by 
 | Requirement | Design | Module | Unit tests | Integration tests | System tests | Acceptance |
 | --- | --- | --- | --- | --- | --- | --- |
 | FR-01 | 4.2, 4.6.1 | M-03 `renderDescription`, M-07 | UT-13, UT-17 | IT-08 | ST-01, ST-03 | AT-01 |
-| FR-02 | 4.2 | M-03 `initEditor` | n/a | IT-12, IT-15 | ST-01 | AT-01, AT-02 |
+| FR-02 | 4.2 | M-03 `initEditor`, `updateIndentGuides` | n/a | IT-12, IT-15 | ST-01, ST-31 | AT-01, AT-02 |
 | FR-03 | 4.4.2 | M-03 `run`, M-05, M-06 | UT-01, UT-04 | IT-03 | ST-08, ST-15 | AT-02 |
 | FR-04 | 4.4.2, 4.5 | M-03 `run` | UT-18 | IT-03 | ST-10, ST-11 | AT-03 |
 | FR-05 | 4.5, 4.7.2 | M-03 `renderBottom`, M-06 | UT-02, UT-03, UT-05, UT-06, UT-07, UT-09 | IT-04, IT-05 | ST-09, ST-10, ST-17 | AT-02, AT-03 |
@@ -718,7 +722,7 @@ The following checks have been performed by static analysis of the files and by 
 | FR-07 | 4.4.1 | M-03 `loadProblem` | UT-12 | IT-08, IT-09 | ST-25 | AT-06 |
 | FR-08 | DD-08, 4.4.1 | M-03 `pickWithWheel`, M-04 | UT-10, UT-16 | IT-10, IT-11 | n/a | AT-06 |
 | FR-09 | 4.4.1 | M-03 gate handler, M-01 | n/a | n/a | ST-04, ST-05 | AT-04 |
-| FR-10 | 4.7.3 | M-03 `enterFullscreen` | n/a | IT-14 | ST-16 | AT-04 |
+| FR-10 | 4.7.3 | M-03 `enterFullscreen`, `onFullscreenChange`, `run` | n/a | IT-14 | ST-16, ST-32 | AT-04 |
 | FR-11 | DD-09, 4.6.3 | M-03 `startTimer` | UT-14, UT-15 | n/a | ST-06, ST-07 | AT-05 |
 | FR-12 | 4.2 | M-02, M-03 `drag` | n/a | n/a | ST-01, ST-02 | AT-01 |
 | FR-13 | 4.8 | M-03, M-02 | n/a | n/a | ST-14 | AT-04 |
